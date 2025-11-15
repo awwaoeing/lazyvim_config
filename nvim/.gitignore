@@ -1,0 +1,33 @@
+# LazyVim 默认忽略
+tt.*
+.tests
+doc/tags
+debug
+.repro
+foo.*
+*.log
+data
+
+# 运行时生成的文件
+.netrwhist
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 备份文件
+*.bak
+*.backup
+lazy-lock.json.bak
+
+# 个人临时文件
+scratch/
+*.local.*
+notes.md
+
+# Lua 字节码
+*.luac
