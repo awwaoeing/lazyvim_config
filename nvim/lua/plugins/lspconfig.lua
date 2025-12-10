@@ -55,62 +55,133 @@ local function get_python_path()
 end
 
 return {
+  -- 确保这个配置在 LazyVim Python extras 之后加载
   {
     "neovim/nvim-lspconfig",
-    opts = {
-      -- 配置各语言服务器
-      servers = {
-        pyright = {
-          -- 开启 Pyright
-          enabled = true,
-          -- 配置 LSP 设置
-          settings = {
-            python = {
-              -- 自动检测并使用虚拟环境的 Python
-              pythonPath = get_python_path(),
+    -- 设置高优先级,确保在 LazyVim extras 之后执行
+    priority = 1,
+    -- 🔧 在插件加载前设置全局诊断配置
+    init = function()
+      -- 让诊断浮动窗口可以聚焦，方便复制内容
+      vim.diagnostic.config({
+        float = {
+          focusable = true,
+          border = "rounded",
+          source = "always",
+        },
+      })
+    end,
+    opts = function(_, opts)
+      -- 确保 servers 表存在
+      opts.servers = opts.servers or {}
 
-              analysis = {
-                typeCheckingMode = "basic",
-                autoSearchPaths = true,
-                useLibraryCodeForTypes = true,
+      -- 我们的自定义 Pyright 配置
+      local my_pyright_config = {
+        -- 🔧 设置项目根路径检测规则
+        root_dir = function(fname)
+          -- 确保 fname 是有效的字符串
+          if not fname or type(fname) ~= "string" or fname == "" then
+            return nil -- 返回 nil 让 lspconfig 使用默认逻辑
+          end
 
-                -- ML 库友好：减少误报
-                diagnosticSeverityOverrides = {
-                  reportMissingTypeStubs = "none", -- 忽略缺失类型存根
-                  reportUnknownMemberType = "none", -- 忽略未知成员类型
-                  reportUnknownVariableType = "none", -- 忽略未知变量类型
-                },
+          local util = require("lspconfig.util")
+          -- 优先查找配置文件，如果没有配置文件，使用 git 根路径或当前目录
+          return util.root_pattern("pyrightconfig.json", "pyproject.toml", "setup.py", "requirements.txt", ".git")(
+            fname
+          ) or vim.fs.dirname(fname)
+        end,
+        -- 配置 LSP 设置
+        settings = {
+          python = {
+            analysis = {
+              typeCheckingMode = "basic",
+              autoSearchPaths = true,
+              useLibraryCodeForTypes = true,
+              -- 🔧 增强自定义类解析
+              autoImportCompletions = true, -- 自动导入补全
+              diagnosticMode = "openFilesOnly", -- 只分析打开的文件，提升性能
+              stubPath = "typings", -- 自定义 stub 文件路径
+              -- 🔧 添加额外的类型检查路径（解决同目录跳转问题）
+              extraPaths = { "." }, -- 将项目根目录添加到搜索路径
 
-                -- 关闭所有 inlay hints
-                inlayHints = {
-                  variableTypes = true,
-                  functionReturnTypes = false,
-                  callArgumentNames = true,
-                  pytestParameters = true,
-                },
+              -- ML 库友好：减少误报
+              diagnosticSeverityOverrides = {
+                reportMissingTypeStubs = "none", -- 忽略缺失类型存根
+                reportUnknownMemberType = "none", -- 忽略未知成员类型
+                reportUnknownVariableType = "none", -- 忽略未知变量类型
+                reportUnknownArgumentType = "none", -- 忽略未知参数类型
+                reportUnknownParameterType = "none", -- 忽略未知参数类型
+                reportMissingImports = "warning", -- 导入缺失显示警告
+                reportUndefinedVariable = "warning", -- 未定义变量显示警告
+              },
+
+              -- 关闭所有 inlay hints
+              inlayHints = {
+                variableTypes = true,
+                functionReturnTypes = false,
+                callArgumentNames = true,
+                pytestParameters = true,
               },
             },
           },
-          --          -- 安全关闭 inlay hints
-          --          on_attach = function(client, bufnr)
-          --            if vim.lsp.buf.inlay_hint then
-          --              vim.lsp.buf.inlay_hint(bufnr, false)
-          --            end
-          --          end,
         },
-        --        -- 如果有其他 Python LSP，可按需添加
-        pyre = false,
-        pyrefly = false,
-      },
-      --      -- LSP 服务器的通用设置
-      --      setup = {
-      --        -- 为所有服务器配置函数签名处理器
-      --        ["*"] = function(server, opts)
-      --          opts.handlers = opts.handlers or {}
-      --          -- 禁用自动显示函数签名提示
-      --          opts.handlers["textDocument/signatureHelp"] = vim.lsp.with(vim.lsp.handlers.signature_help, { silent = true })
-      --        end,
-      --      },
-    },
+        -- 🔧 动态设置 Python 路径（支持切换项目和虚拟环境）
+        before_init = function(_, config)
+          -- 每次初始化 LSP 时重新检测 Python 路径
+          config.settings.python.pythonPath = get_python_path()
+        end,
+        -- 🔧 增强 LSP 客户端能力
+        on_attach = function(client, bufnr)
+          -- 启用语义高亮（可选）
+          if client.server_capabilities.documentSymbolProvider then
+            -- 安全地尝试加载 nvim-navic，如果不存在则跳过
+            local has_navic, navic = pcall(require, "nvim-navic")
+            if has_navic then
+              navic.attach(client, bufnr)
+            end
+          end
+
+          -- 🔧 键位映射：<leader>cd 打开可聚焦的诊断窗口，方便复制错误信息
+          vim.keymap.set("n", "<leader>cd", function()
+            vim.diagnostic.open_float({ focusable = true, border = "rounded", source = "always" })
+          end, { buffer = bufnr, desc = "显示诊断信息（可复制）" })
+
+          -- 🔧 键位映射：<leader>le 切换 LSP 启用/禁用（刷题时临时禁用）
+          vim.keymap.set("n", "<leader>le", function()
+            vim.cmd("LspStop")
+            vim.notify("LSP 已禁用", vim.log.levels.INFO)
+          end, { buffer = bufnr, desc = "禁用 LSP" })
+
+          -- 🔧 键位映射：<leader>ls 启用 LSP
+          vim.keymap.set("n", "<leader>ls", function()
+            vim.cmd("LspStart")
+            vim.notify("LSP 已启用", vim.log.levels.INFO)
+          end, { buffer = bufnr, desc = "启用 LSP" })
+        end,
+      }
+
+      -- 使用深度合并,我们的配置在后面,会覆盖 LazyVim 的配置
+      opts.servers.pyright = vim.tbl_deep_extend(
+        "force",
+        opts.servers.pyright or {}, -- LazyVim 的基础配置
+        my_pyright_config -- 我们的自定义配置(优先)
+      )
+
+      -- 禁用其他 Python LSP
+      opts.servers.pyre = false
+      opts.servers.pyrefly = false
+
+      -- 确保 setup 表存在
+      opts.setup = opts.setup or {}
+
+      -- 添加 setup 回调来确保配置生效
+      opts.setup.pyright = function(_, server_opts)
+        -- 在这里强制设置我们的配置
+        require("lspconfig").pyright.setup(server_opts)
+      end
+
+      -- 返回修改后的 opts
+      return opts
+    end,
   },
 }

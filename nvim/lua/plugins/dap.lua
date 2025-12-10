@@ -21,15 +21,9 @@ return {
           local dapui = require("dapui")
           dapui.setup(opts)
 
-          -- 自动打开/关闭 DAP UI
+          -- 仅自动打开 DAP UI，不自动关闭
           dap.listeners.after.event_initialized["dapui_config"] = function()
             dapui.open({})
-          end
-          dap.listeners.before.event_terminated["dapui_config"] = function()
-            dapui.close({})
-          end
-          dap.listeners.before.event_exited["dapui_config"] = function()
-            dapui.close({})
           end
         end,
       },
@@ -63,7 +57,7 @@ return {
           automatic_installation = true,
           handlers = {},
           ensure_installed = {
-            "python", -- Python 调试器 (debugpy)
+            "python", -- debugpy adapter (由 Mason 管理)
           },
         },
       },
@@ -97,60 +91,122 @@ return {
       vim.fn.sign_define("DapBreakpointCondition", { text = "🟡", texthl = "DapBreakpoint", linehl = "", numhl = "" })
       vim.fn.sign_define("DapBreakpointRejected", { text = "⚫", texthl = "DapBreakpoint", linehl = "", numhl = "" })
       vim.fn.sign_define("DapLogPoint", { text = "📝", texthl = "DapLogPoint", linehl = "", numhl = "" })
-      vim.fn.sign_define("DapStopped", { text = "▶️", texthl = "DapStopped", linehl = "DapStoppedLine", numhl = "" })
+      vim.fn.sign_define(
+        "DapStopped",
+        { text = "▶️", texthl = "DapStopped", linehl = "DapStoppedLine", numhl = "" }
+      )
 
       -- Python 调试配置
-      -- 注意：需要在虚拟环境中安装 debugpy: pip install debugpy
-      dap.adapters.python = {
-        type = "executable",
-        command = "python",
-        args = { "-m", "debugpy.adapter" },
-      }
+      -- Mason 会自动安装 debugpy adapter，不需要在项目中安装
 
+      -- 🔧 辅助函数：自动检测虚拟环境的 Python 路径（支持 uv/venv/conda）
+      -- 这个函数会被 adapter 和 configuration 复用
+      local function get_python_path()
+        local cwd = vim.fn.getcwd()
+
+        -- 优先级 1: 项目本地虚拟环境 (.venv 或 venv)
+        local venv_names = { ".venv", "venv" }
+        for _, name in ipairs(venv_names) do
+          local local_python = cwd .. "/" .. name .. "/bin/python"
+          if vim.fn.executable(local_python) == 1 then
+            return local_python
+          end
+        end
+
+        -- 优先级 2: VIRTUAL_ENV 环境变量 (uv run 或手动激活)
+        local venv = vim.env.VIRTUAL_ENV
+        if venv and vim.fn.executable(venv .. "/bin/python") == 1 then
+          return venv .. "/bin/python"
+        end
+
+        -- 优先级 3: Conda 环境
+        local conda = vim.env.CONDA_PREFIX
+        if conda and vim.fn.executable(conda .. "/bin/python") == 1 then
+          return conda .. "/bin/python"
+        end
+
+        -- 优先级 4: 系统 Python (最终回退)
+        return vim.fn.exepath("python3") or vim.fn.exepath("python") or "python"
+      end
+
+      -- debugpy adapter 配置
+      -- Mason 会自动配置，但如果失败则使用下面的配置
+      dap.adapters.python = dap.adapters.python
+        or function(cb, config)
+          if config.request == "attach" then
+            -- Attach 模式：连接到已运行的 Python 进程
+            ---@diagnostic disable-next-line: undefined-field
+            local port = (config.connect or config).port
+            ---@diagnostic disable-next-line: undefined-field
+            local host = (config.connect or config).host or "127.0.0.1"
+            cb({
+              type = "server",
+              port = assert(port, "`connect.port` is required for a python `attach` configuration"),
+              host = host,
+              options = {
+                source_filetype = "python",
+              },
+            })
+          else
+            -- Launch 模式：使用 Mason 安装的 debugpy adapter
+            cb({
+              type = "executable",
+              command = vim.fn.stdpath("data") .. "/mason/packages/debugpy/venv/bin/python",
+              args = { "-m", "debugpy.adapter" },
+            })
+          end
+        end
+
+      -- Python 调试配置（被调试的程序使用项目虚拟环境）
       dap.configurations.python = {
         {
           type = "python",
           request = "launch",
           name = "Launch file",
-          program = "${file}",
-          pythonPath = function()
-            -- 尝试使用虚拟环境中的 Python
-            local cwd = vim.fn.getcwd()
-            if vim.fn.executable(cwd .. "/venv/bin/python") == 1 then
-              return cwd .. "/venv/bin/python"
-            elseif vim.fn.executable(cwd .. "/.venv/bin/python") == 1 then
-              return cwd .. "/.venv/bin/python"
-            else
-              return "/usr/bin/python3"
-            end
-          end,
+          program = "${file}", -- 当前文件
+          pythonPath = get_python_path, -- 复用上面定义的函数
         },
       }
     end,
   },
 
-  -- Python 专用调试扩展
+  -- Python 专用调试扩展（用于调试 pytest 测试）
   {
     "mfussenegger/nvim-dap-python",
     ft = "python",
     dependencies = { "mfussenegger/nvim-dap" },
     -- stylua: ignore
     keys = {
-      { "<leader>dPt", function() require("dap-python").test_method() end, desc = "Debug Method", ft = "python" },
-      { "<leader>dPc", function() require("dap-python").test_class() end, desc = "Debug Class", ft = "python" },
+      { "<leader>dPt", function() require("dap-python").test_method() end, desc = "Debug Test Method", ft = "python" },
+      { "<leader>dPc", function() require("dap-python").test_class() end, desc = "Debug Test Class", ft = "python" },
     },
     config = function()
-      -- 自动检测 Python 路径
-      local python_path = "python"
-      local cwd = vim.fn.getcwd()
+      -- 复用虚拟环境检测逻辑（与上面的 nvim-dap 保持一致）
+      local function get_python_path()
+        local cwd = vim.fn.getcwd()
+        local venv_names = { ".venv", "venv" }
 
-      if vim.fn.executable(cwd .. "/venv/bin/python") == 1 then
-        python_path = cwd .. "/venv/bin/python"
-      elseif vim.fn.executable(cwd .. "/.venv/bin/python") == 1 then
-        python_path = cwd .. "/.venv/bin/python"
+        for _, name in ipairs(venv_names) do
+          local local_python = cwd .. "/" .. name .. "/bin/python"
+          if vim.fn.executable(local_python) == 1 then
+            return local_python
+          end
+        end
+
+        local venv = vim.env.VIRTUAL_ENV
+        if venv and vim.fn.executable(venv .. "/bin/python") == 1 then
+          return venv .. "/bin/python"
+        end
+
+        local conda = vim.env.CONDA_PREFIX
+        if conda and vim.fn.executable(conda .. "/bin/python") == 1 then
+          return conda .. "/bin/python"
+        end
+
+        return vim.fn.exepath("python3") or vim.fn.exepath("python") or "python"
       end
 
-      require("dap-python").setup(python_path)
+      require("dap-python").setup(get_python_path())
     end,
   },
 }

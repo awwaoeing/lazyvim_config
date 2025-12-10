@@ -30,6 +30,7 @@ In [1]: %connect_info
 ```
 
 输出类似：
+
 ```
 {
   "shell_port": 54321,
@@ -90,9 +91,11 @@ nvim test_jupyter.py
 
 2. **输入 kernel 文件路径**：
    - 如果提示输入路径，输入类似：
+
      ```
      ~/.local/share/jupyter/runtime/kernel-12345.json
      ```
+
    - 或者直接输入 kernel 名称（如果在同一台机器上）
 
 3. **连接成功提示**：
@@ -127,16 +130,19 @@ nvim test_jupyter.py
 ## 📝 完整的快捷键列表
 
 ### 连接管理
+
 - `\jc` - 连接到 Jupyter kernel
 - `\jd` - 断开连接
 
 ### 运行代码（jupyter-vim）
+
 - `\w` (可视模式) - **运行选中的代码** ⭐ 最常用
 - `\e` - 运行整个文件
 - `\r` - 运行当前行/文本对象
 - `\c` - 运行当前 cell
 
 ### Cell 操作（vim-ipython-cell）
+
 - `<Space>cr` - 运行当前 cell
 - `<Space>cc` - 执行当前 cell
 - `<Space>cC` - 执行 cell 并跳转到下一个
@@ -145,6 +151,7 @@ nvim test_jupyter.py
 - `<Space>cl` - 清除 IPython 输出
 
 ### REPL 操作（vim-repl）
+
 - `<Space>rt` - 打开/关闭 REPL 窗口
 - `<Space>rr` - 发送当前行到 REPL
 - `<Space>rs` (可视模式) - 发送选中内容到 REPL
@@ -167,12 +174,14 @@ nvim test_jupyter.py
 ### 技巧 3：使用 Cell 分隔符
 
 在代码中使用 `# %%` 来分隔不同的代码块，这样可以：
+
 - 用 `[c` 和 `]c` 快速在 cell 之间跳转
 - 用 `<Space>cr` 运行单个 cell
 
 ### 技巧 4：查看变量
 
 在 Jupyter console 中可以查看变量：
+
 ```python
 In [2]: x
 Out[2]: array([1, 2, 3, 4, 5])
@@ -186,6 +195,7 @@ Out[3]: numpy.ndarray
 ### Q1: 按 `\jc` 没反应？
 
 **A**: 检查：
+
 1. 文件是否是 `.py` 结尾？
 2. 运行 `:messages` 查看错误信息
 3. 确认插件已安装：`:Lazy` 界面中查看 `jupyter-vim`
@@ -193,6 +203,7 @@ Out[3]: numpy.ndarray
 ### Q2: 连接失败？
 
 **A**:
+
 1. 确保 Jupyter console 正在运行
 2. 检查 kernel 文件路径是否正确
 3. 尝试在 Jupyter console 中运行 `%connect_info`
@@ -200,6 +211,7 @@ Out[3]: numpy.ndarray
 ### Q3: 代码运行后没输出？
 
 **A**:
+
 1. 检查 Jupyter console 窗口
 2. 输出会在 console 中显示，不是在 Neovim 中
 3. 如果想在 Neovim 中看到输出，使用 vim-repl
@@ -207,6 +219,7 @@ Out[3]: numpy.ndarray
 ### Q4: 如何找到 kernel 文件？
 
 **A**:
+
 ```bash
 # 方法 1: 在 Jupyter console 中
 %connect_info
@@ -239,6 +252,7 @@ nvim quick_test.py
 ```
 
 在 Neovim 中：
+
 1. 按 `\jc` 连接
 2. 按 `V` 选中第一行
 3. 按 `jjj` 选中多行
@@ -248,5 +262,5 @@ nvim quick_test.py
 ## 📚 更多帮助
 
 - 查看详细文档：`cat ~/.config/nvim/JUPYTER_SETUP.md`
-- Jupyter-vim GitHub: https://github.com/jupyter-vim/jupyter-vim
+- Jupyter-vim GitHub: <https://github.com/jupyter-vim/jupyter-vim>
 - 如有问题，运行 `:messages` 查看错误日志

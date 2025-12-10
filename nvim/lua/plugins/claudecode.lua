@@ -7,7 +7,7 @@ return {
       terminal = {
         -- 右侧边栏配置
         split_side = "right", -- 在右侧显示
-        split_width_percentage = 0.45, -- 占 45% 宽度
+        split_width_percentage = 0.33, -- 占 45% 宽度
       },
     },
   },

@@ -21,21 +21,42 @@ return {
       -- 关键配置：启用 jupyter-vim 命令
       vim.g.jupytervim_enable_commands = 1
 
-      -- Python 解释器路径（根据你的环境修改）
-      -- 优先使用 CONDA_PREFIX 环境变量（如果在激活的 conda 环境中）
-      local conda_env = os.getenv("CONDA_PREFIX")
-      if conda_env then
-        vim.g.jupytervim_python_path = conda_env .. "/bin/python3"
-      else
-        -- 否则使用 myenv 环境的 Python
-        local myenv_python = vim.fn.expand("~/conda/envs/myenv/bin/python3")
-        if vim.fn.executable(myenv_python) == 1 then
-          vim.g.jupytervim_python_path = myenv_python
-        else
-          -- 最后回退到系统默认 Python
-          vim.g.jupytervim_python_path = vim.fn.exepath("python3")
+      -- Python 解释器路径 - 自动检测虚拟环境（支持 uv）
+      -- 按优先级查找：项目 .venv -> VIRTUAL_ENV -> Conda -> 系统 Python
+      local function get_python_path()
+        -- 优先级 1: 项目本地虚拟环境（uv venv 创建的 .venv）
+        local cwd = vim.fn.getcwd()
+        local venv_names = { ".venv", "venv" }
+        for _, name in ipairs(venv_names) do
+          local local_python = cwd .. "/" .. name .. "/bin/python"
+          if vim.fn.executable(local_python) == 1 then
+            return local_python
+          end
         end
+
+        -- 优先级 2: VIRTUAL_ENV 环境变量（uv run 或手动激活虚拟环境）
+        local venv = vim.env.VIRTUAL_ENV
+        if venv then
+          local venv_python = venv .. "/bin/python"
+          if vim.fn.executable(venv_python) == 1 then
+            return venv_python
+          end
+        end
+
+        -- 优先级 3: Conda 环境（如果在激活的 conda 环境中）
+        local conda_env = vim.env.CONDA_PREFIX
+        if conda_env then
+          local conda_python = conda_env .. "/bin/python"
+          if vim.fn.executable(conda_python) == 1 then
+            return conda_python
+          end
+        end
+
+        -- 优先级 4: 系统默认 Python
+        return vim.fn.exepath("python3") or vim.fn.exepath("python") or "python"
       end
+
+      vim.g.jupytervim_python_path = get_python_path()
 
       -- Jupyter kernel 连接文件路径（可选）
       -- 如果需要连接到特定 kernel，取消下面这行的注释并设置路径
@@ -217,8 +238,35 @@ return {
       vim.g.repl_exit_commands = { "quit()", "exit()", ":q" }
 
       -- 不同语言的 REPL 程序设置
+      -- Python 自动检测虚拟环境（支持 uv）
+      local function get_python_repl()
+        local cwd = vim.fn.getcwd()
+
+        -- 优先级 1: 项目虚拟环境
+        local venv_names = { ".venv", "venv" }
+        for _, name in ipairs(venv_names) do
+          local venv_python = cwd .. "/" .. name .. "/bin/python"
+          if vim.fn.executable(venv_python) == 1 then
+            return venv_python
+          end
+        end
+
+        -- 优先级 2: VIRTUAL_ENV 环境变量
+        if vim.env.VIRTUAL_ENV and vim.fn.executable(vim.env.VIRTUAL_ENV .. "/bin/python") == 1 then
+          return vim.env.VIRTUAL_ENV .. "/bin/python"
+        end
+
+        -- 优先级 3: Conda 环境
+        if vim.env.CONDA_PREFIX and vim.fn.executable(vim.env.CONDA_PREFIX .. "/bin/python") == 1 then
+          return vim.env.CONDA_PREFIX .. "/bin/python"
+        end
+
+        -- 优先级 4: 系统 Python
+        return "python3"
+      end
+
       vim.g.repl_program = {
-        python = "python3",
+        python = get_python_repl(),
         cpp = "/snap/bin/cling", -- 从原配置中的 cling REPL
         default = "bash",
       }

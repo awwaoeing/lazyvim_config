@@ -17,15 +17,40 @@ local autocmd = vim.api.nvim_create_autocmd
 -- 终端模式自动切换配置
 -- ============================================================================
 
--- 1. 终端打开时先停留在 normal 模式
+-- 检测并返回虚拟环境激活脚本路径
+local function get_venv_activate_path()
+  local cwd = vim.fn.getcwd()
+  local venv_names = { ".venv", "venv" } -- uv 默认使用 .venv
+
+  for _, name in ipairs(venv_names) do
+    local activate_path = cwd .. "/" .. name .. "/bin/activate"
+    if vim.fn.filereadable(activate_path) == 1 then
+      return activate_path
+    end
+  end
+
+  return nil
+end
+
+-- 1. 终端打开时自动激活虚拟环境并停留在 normal 模式
 vim.api.nvim_create_autocmd("TermOpen", {
   pattern = "*",
   callback = function()
+    -- 检测虚拟环境
+    local activate_path = get_venv_activate_path()
+
+    if activate_path then
+      -- 自动发送激活命令到终端
+      local cmd = "source " .. activate_path .. "\n"
+      vim.api.nvim_chan_send(vim.b.terminal_job_id, cmd)
+    end
+
+    -- 先停留在 normal 模式
     vim.schedule(function()
       vim.cmd("stopinsert") -- 退出插入模式，进入 normal 模式
     end)
   end,
-  desc = "Enter terminal in normal mode when opened",
+  desc = "Auto-activate venv and enter terminal in normal mode when opened",
 })
 
 -- 2. 切换到终端缓冲区时保持 normal 模式，不自动进入 terminal 模式
