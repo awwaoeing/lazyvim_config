@@ -147,16 +147,17 @@ return {
         silent = true,
       },
 
-      -- Cell 导航（与 vim-ipython-cell 兼容）
+      -- Cell 导航（使用不同的键位避免与 vim-ipython-cell 冲突）
+      -- 注意：[c 和 ]c 由 vim-ipython-cell 使用，这里使用 [m 和 ]m
       {
-        "[c",
+        "[m",
         ":MoltenPrev<CR>",
         desc = "跳到上一个 Molten cell",
         ft = "python",
         silent = true,
       },
       {
-        "]c",
+        "]m",
         ":MoltenNext<CR>",
         desc = "跳到下一个 Molten cell",
         ft = "python",

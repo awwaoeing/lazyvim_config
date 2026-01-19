@@ -111,14 +111,16 @@ return {
                 reportUnknownVariableType = "none", -- 忽略未知变量类型
                 reportUnknownArgumentType = "none", -- 忽略未知参数类型
                 reportUnknownParameterType = "none", -- 忽略未知参数类型
+                reportOptionalMemberAccess = "none", -- 忽略访问可能为 None 的对象属性
+                reportOptionalCall = "none", -- 忽略调用可能为 None 的对象
+                reportArgumentType = "none", -- 忽略参数类型不匹配（PyTorch Tensor 类型转换）
                 reportMissingImports = "warning", -- 导入缺失显示警告
                 reportUndefinedVariable = "warning", -- 未定义变量显示警告
               },
 
-              -- 关闭所有 inlay hints
               inlayHints = {
-                variableTypes = true,
-                functionReturnTypes = false,
+                variableTypes = false,
+                functionReturnTypes = true,
                 callArgumentNames = true,
                 pytestParameters = true,
               },
@@ -139,6 +141,11 @@ return {
             if has_navic then
               navic.attach(client, bufnr)
             end
+          end
+
+          -- 🟢 新增：确保 Inlay Hints 在 UI 上启用 (仅支持 Neovim 0.10+)
+          if client.server_capabilities.inlayHintProvider then
+            vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
           end
 
           -- 🔧 键位映射：<leader>cd 打开可聚焦的诊断窗口，方便复制错误信息

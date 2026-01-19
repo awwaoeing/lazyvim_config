@@ -60,7 +60,13 @@ map("n", "FF", "zM", { desc = "Close all folds" })
 -- ============================================================================
 
 -- Space Space: 保存并退出
-map("n", "<Space><Space>", ":wq<CR>", { desc = "Save and quit" })
+-- 注意：延迟设置以覆盖 LazyVim 的默认映射
+vim.api.nvim_create_autocmd("User", {
+  pattern = "VeryLazy",
+  callback = function()
+    vim.keymap.set("n", "<Space><Space>", ":wq<CR>", { desc = "Save and quit", noremap = true })
+  end,
+})
 
 -- ============================================================================
 -- 粘贴模式切换
@@ -99,6 +105,16 @@ end, { desc = "Open terminal at bottom" })
 -- 终端模式下快速退出到 normal 模式
 map("t", "<Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
 map("t", "jk", "<C-\\><C-n>", { desc = "Exit terminal mode with jk" })
+
+-- ============================================================================
+-- Buffer 切换快捷键
+-- ============================================================================
+
+-- [: 上一个 buffer
+map("n", "[", "<cmd>bprevious<cr>", { desc = "Previous buffer" })
+
+-- ]: 下一个 buffer
+map("n", "]", "<cmd>bnext<cr>", { desc = "Next buffer" })
 
 -- ============================================================================
 -- 插件相关快捷键（将在插件配置中设置）

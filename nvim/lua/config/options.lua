@@ -34,7 +34,7 @@ vim.opt.showmatch = true -- 显示匹配的括号
 -- 鼠标支持
 vim.opt.mouse = "a" -- 启用鼠标
 
--- 缩进设置jk
+-- 缩进设置
 vim.opt.tabstop = 4 -- Tab 键宽度为 4 个空格
 vim.opt.shiftwidth = 4 -- 自动缩进宽度为 4 个空格
 vim.opt.autoindent = true -- 启用自动缩进
@@ -64,6 +64,8 @@ vim.opt.termguicolors = true -- 启用 24 位真彩色
 -- 持久化撤销
 vim.opt.undofile = true -- 启用持久化撤销历史
 vim.opt.undodir = vim.fn.expand("~/.undodir") -- 撤销文件存储目录
+-- 设置命令行高度为 0（隐藏命令行）
+vim.opt.cmdheight = 0
 
 -- 注意：pastetoggle 在 Neovim 中不支持
 -- 粘贴模式切换通过 F10 键位映射实现（见 keymaps.lua）

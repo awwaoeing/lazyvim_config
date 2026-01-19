@@ -19,10 +19,6 @@ return {
         -- Lua 工具链（非 LSP）
         "stylua", -- Lua formatter
 
-        -- Markdown 工具链（非 LSP）
-        "markdownlint-cli2", -- Markdown linter
-        "markdown-toc", -- Markdown TOC generator
-
         -- Shell 工具链（非 LSP）
         "shellcheck", -- Shell linter
         "shfmt", -- Shell formatter
